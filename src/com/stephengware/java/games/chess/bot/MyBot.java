@@ -1,21 +1,25 @@
+// package com.stephengware.java.games.chess.bot;
+
+// import com.stephengware.java.games.chess.state.*;
+
+// import java.util.ArrayList;
+// import java.util.HashMap;
+
 package com.stephengware.java.games.chess.bot;
 
 import com.stephengware.java.games.chess.state.*;
-
-import com.stephengware.java.games.chess.Game.*;
-
-import com.stephengware.java.games.chess.state.State.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Iterator;
 
 public class MyBot extends Bot {
 
     private final Map<Long, TTEntry> transTable = new HashMap<>();
     private int nodeCount;
-    private static final int MAX_NODES = 50000;
+    private static final int MAX_NODES = 500000;
 
     private static final int PAWN_VALUE = 100;
     private static final int KNIGHT_VALUE = 320;
@@ -24,7 +28,7 @@ public class MyBot extends Bot {
     private static final int QUEEN_VALUE = 900;
     // private static final int KING_VALUE = 20000;
 
-    private static final int MAX_DEPTH = 3;
+    private static final int MAX_DEPTH = 4;
     private static final int INFINITY = 9999999;
 
     // Piece-square tables (PST)
@@ -166,111 +170,174 @@ public class MyBot extends Bot {
         return iterativeDeepeningSearch(root);
     }
 
+    // private State iterativeDeepeningSearch(State root) {
+    // State bestMove = null; // best move found so far (from last fully completed
+    // depth)
+    // Player botPlayer = root.player;
+
+    // // Iteratively deepen search, starting at depth 1 up to MAX_DEPTH
+    // for (int depth = 1; depth <= MAX_DEPTH; depth++) {
+    // nodeCount = 0; // reset global node counter for this depth
+    // State currentBest = null; // best move found at this depth only
+    // int bestValue = -INFINITY;
+    // boolean completed = true; // assume we’ll finish this depth unless search is
+    // cut short
+
+    // System.out.println(">>> Starting search at depth " + depth);
+
+    // for (State child : root.next()) {
+    // // --- limit check before expanding this child ---
+    // if (limitReached(root)) {
+    // System.out.println("Search limit reached before exploring child at depth " +
+    // depth);
+    // completed = false;
+    // break;
+    // }
+
+    // // --- minimax call ---
+    // int value = minimax(child, depth - 1, false, botPlayer, -INFINITY, INFINITY);
+    // System.out.println("Evaluated child with value = " + value + " at depth " +
+    // depth);
+
+    // // --- limit check after expanding this child ---
+    // if (limitReached(root)) {
+    // System.out.println("Search limit reached after evaluating child at depth " +
+    // depth);
+    // completed = false;
+    // break;
+    // }
+
+    // // update best move for this depth
+    // if (value > bestValue || currentBest == null) {
+    // System.out.println("New best move found with value " + value + " at depth " +
+    // depth);
+    // bestValue = value;
+    // currentBest = child;
+    // }
+    // }
+
+    // // If we completed this depth, update the overall best move
+    // if (completed && currentBest != null) {
+    // System.out.println("Depth " + depth + " completed. Best value: " +
+    // bestValue);
+    // bestMove = currentBest;
+    // } else {
+    // System.out.println("Depth " + depth + " was cut off. Stopping search.");
+    // break; // stop going deeper once a depth is cut off
+    // }
+    // }
+
+    // System.out.println(">>> Iterative deepening finished. Returning best move.");
+    // return bestMove; // returns the deepest fully completed best move
+    // }
+
     private State iterativeDeepeningSearch(State root) {
-        State bestMove = null;
+        State bestMove = null; // best move found so far
         Player botPlayer = root.player;
-        // System.out.println("Bot is playing as: " + botPlayer);
 
-        for (int depth = 1; depth <= MAX_DEPTH; depth++) {
-            nodeCount = 0; // reset node counter for this depth
-            State currentBest = null;
-            int bestValue = -INFINITY;
+        try {
+            // Iteratively deepen search
+            for (int depth = 1; depth <= MAX_DEPTH; depth++) {
+                nodeCount = 0;
+                State currentBest = null;
+                int bestValue = -INFINITY;
+                boolean completed = true;
 
-            boolean completed = true; // track if we completed the search at this depth
+                // System.out.println(">>> Starting search at depth " + depth);
 
-            for (State child : root.next()) {
-                if (nodeCount > MAX_NODES) {
-                    completed = false;
-                    break; // stop if node limit reached
+                // Iterate through children safely
+                for (Iterator<State> it = root.next().iterator(); it.hasNext();) {
+                    // --- limit check before expanding child ---
+                    if (limitReached(root)) {
+                        // System.out.println("Search limit reached before exploring child at depth " +
+                        // depth);
+                        completed = false;
+                        break;
+                    }
+
+                    State child = it.next(); // may trigger SearchLimit internally
+                    int value = minimax(child, depth - 1, false, botPlayer, -INFINITY, INFINITY);
+                    // System.out.println("Evaluated child with value = " + value + " at depth " +
+                    // depth);
+
+                    // --- limit check after child expansion ---
+                    if (limitReached(root)) {
+                        // System.out.println("Search limit reached after evaluating child at depth " +
+                        // depth);
+                        completed = false;
+                        break;
+                    }
+
+                    if (value > bestValue || currentBest == null) {
+                        // System.out.println("New best move found with value " + value + " at depth " +
+                        // depth);
+                        bestValue = value;
+                        currentBest = child;
+                    }
                 }
-                // System.out.println("Evaluating move at depth " + depth + ":");
-                // System.out.println(child.board.toString());
 
-                int value = minimax(child, depth - 1, false, botPlayer, -INFINITY, INFINITY);
-
-                // System.out.println("Depth " + depth + " evaluated move: " + child + " with
-                // eval: " + value);
-
-                if (value > bestValue || currentBest == null) {
-                    bestValue = value;
-                    currentBest = child;
+                // Update only if this depth fully completed
+                if (completed && currentBest != null) {
+                    // System.out.println("Depth " + depth + " completed. Best value: " +
+                    // bestValue);
+                    bestMove = currentBest;
+                } else {
+                    // System.out.println("Depth " + depth + " was cut off. Stopping search.");
+                    break;
                 }
             }
-
-            // Only update the bestMove if this depth completed fully
-            if (completed && currentBest != null) {
-                bestMove = currentBest;
-                // System.out.println("Depth " + depth + " completed. Best move: " + bestMove +
-                // " with eval: " + bestValue);
+        } catch (RuntimeException e) {
+            if (e.getMessage() != null && e.getMessage().contains("Search limit exceeded")) {
+                // System.out.println(">>> Search stopped due to search limit. Returning best
+                // move so far.");
+                return bestMove;
+            } else {
+                throw e; // rethrow unexpected exceptions
             }
-
-            if (!completed)
-                break; // stop deeper searches if node limit hit
         }
 
+        // System.out.println(">>> Iterative deepening finished. Returning best move.");
         return bestMove;
     }
 
-    // private int minimax(State state, int depth, boolean maximizingPlayer, Player
-    // botPlayer, int alpha, int beta) {
-    // nodeCount++;
-
-    // // Terminal or depth cutoff
-    // if (nodeCount > MAX_NODES || depth == 0 || state.over) {
-    // return evaluateState(state, botPlayer);
-    // }
-
-    // // Lookup in TT
-    // long hash = computeStateHash(state);
-    // TTEntry entry = transTable.get(hash);
-    // if (entry != null && entry.depth >= depth) {
-    // return entry.value; // reuse stored evaluation
-    // }
-
-    // int result = alphaBetaPrune(state, depth, maximizingPlayer, botPlayer, alpha,
-    // beta);
-
-    // // Store in TT (replace only if deeper)
-    // if (entry == null || depth > entry.depth) {
-    // transTable.put(hash, new TTEntry(result, depth));
-    // }  
-
-    // return result;
-    // }
+    private boolean limitReached(State state) {
+        return nodeCount > MAX_NODES || state.searchLimitReached();
+    }
 
     private int minimax(State state, int depth, boolean maximizingPlayer, Player botPlayer, int alpha, int beta) {
         nodeCount++;
 
-        // --- Terminal condition ---
-        if (nodeCount > MAX_NODES || depth == 0 || state.over) {
+        // 🚨 Limit + terminal condition check
+        if (limitReached(state) || depth == 0 || state.over) {
             return evaluateState(state, botPlayer);
         }
 
+        // --- Transposition table probe ---
         long hash = computeStateHash(state);
         TTEntry entry = transTable.get(hash);
-
-        int originalAlpha = alpha;
-        int originalBeta = beta;
-
-        // --- TT probe ---
         if (entry != null && entry.depth >= depth) {
-            if (entry.flag == BoundType.EXACT) {
+            switch (entry.flag) {
+                case EXACT:
+                    return entry.value;
+                case LOWER:
+                    alpha = Math.max(alpha, entry.value);
+                    break;
+                case UPPER:
+                    beta = Math.min(beta, entry.value);
+                    break;
+            }
+            if (alpha >= beta)
                 return entry.value;
-            } else if (entry.flag == BoundType.LOWER) {
-                alpha = Math.max(alpha, entry.value);
-            } else if (entry.flag == BoundType.UPPER) {
-                beta = Math.min(beta, entry.value);
-            }
-
-            if (alpha >= beta) {
-                return entry.value; // cutoff
-            }
         }
 
+        // --- Search children ---
         int bestValue = maximizingPlayer ? -INFINITY : INFINITY;
 
-        // --- Search children ---
         for (State child : state.next()) {
+            if (limitReached(state)) {
+                return evaluateState(state, botPlayer); // stop branch early
+            }
+
             int eval = minimax(child, depth - 1, !maximizingPlayer, botPlayer, alpha, beta);
 
             if (maximizingPlayer) {
@@ -282,27 +349,13 @@ public class MyBot extends Bot {
             }
 
             if (beta <= alpha)
-                break; // alpha-beta cutoff
-        }
-
-        // --- Store in TT ---
-        BoundType flag;
-        if (bestValue <= originalAlpha) {
-            flag = BoundType.UPPER;
-        } else if (bestValue >= originalBeta) {
-            flag = BoundType.LOWER;
-        } else {
-            flag = BoundType.EXACT;
-        }
-
-        if (entry == null || depth >= entry.depth) {
-            transTable.put(hash, new TTEntry(bestValue, depth, flag));
+                break; // cutoff
         }
 
         return bestValue;
     }
 
-    //
+    // --- Helper methods for evaluation and hashing ---
     private long computeStateHash(State state) {
         long hash = 0;
         int i = 0;
@@ -321,10 +374,25 @@ public class MyBot extends Bot {
 
     private int evaluateState(State state, Player botPlayer) {
         // --- 1. Game-over states ---
-        if (state.board.getKing(botPlayer) == null)
-            return -INFINITY; // Bot lost
-        if (state.board.getKing(botPlayer.other()) == null)
-            return INFINITY; // Opponent lost
+        // if (state.board.getKing(botPlayer) == null)
+        // return -INFINITY; // Bot lost
+        // if (state.board.getKing(botPlayer.other()) == null)
+        // return INFINITY; // Opponent lost
+
+        if (state.over) {
+            if (state.check) {
+                // Current player is checkmated
+                if (state.player == botPlayer) {
+                    // System.out.println("" + botPlayer.toString());
+                    return -INFINITY; // bot lost
+                } else {
+                    return INFINITY; // bot won
+                }
+            } else {
+                // Game over but not in check => stalemate / draw
+                return 0;
+            }
+        }
 
         int score = 0;
 
@@ -336,8 +404,6 @@ public class MyBot extends Bot {
                     continue;
 
                 int value = getPieceValue(piece);
-
-
                 int pst = getPieceSquareValue(piece, state, botPlayer);
 
                 // Bonus for being close to center (weighted stronger than PST)
@@ -351,22 +417,28 @@ public class MyBot extends Bot {
             }
         }
 
-        // --- 3. Mobility heuristic ---
+        // // --- 3. Mobility heuristic ---
+        score += getMobilityScore(state, botPlayer);
+
+        // // --- 4. Endgame king activity heuristic ---
+        score += ForceKingToCornerEndgameEval(state, botPlayer, botPlayer);
+        score -= ForceKingToCornerEndgameEval(state, botPlayer.other(), botPlayer);
+
+        return score;
+    }
+
+    private int getMobilityScore(State state, Player botPlayer) {
         int ourMoves = 0;
         int theirMoves = 0;
+
         for (State child : state.next()) {
             if (state.player == botPlayer)
                 ourMoves++;
             else
                 theirMoves++;
         }
-        score += (ourMoves - theirMoves) * 5;
 
-        // --- 4. Endgame king activity heuristic ---
-        score += ForceKingToCornerEndgameEval(state, botPlayer, botPlayer);
-        score -= ForceKingToCornerEndgameEval(state, botPlayer.other(), botPlayer);
-
-        return score;
+        return (ourMoves - theirMoves) * 5;
     }
 
     private int getPieceSquareValue(Piece piece, State state, Player botPlayer) {
@@ -458,50 +530,14 @@ public class MyBot extends Bot {
         return count;
     }
 
-    /**
-     * Returns a weight for endgame transition: 0 = midgame, 1 = endgame.
-     */
-    // private double getEndgameWeight(State state) {
-    // Player botPlayer = state.player; // or pass as parameter if needed
-    // int enemyPieces = 0;
-    // //
-    // for (Piece piece : state.board) {
-    // if (piece.player != botPlayer) {
-    // enemyPieces++;
-    // }
-    // }
-
-    // // int queens = 0;
-    // // for (Piece piece : state.board) {
-    // // if (piece.player != botPlayer && piece instanceof Queen) {
-    // // queens++;
-    // // }
-    // // }
-
-    // double weight = 0.0;
-
-    // // Heuristic: endgame starts when enemy pieces <= 6 OR no enemy queens
-    // if (enemyPieces <= 6 ) {
-    // weight = 1.0;
-    // System.out.println("Endgame detected: enemyPieces=" + enemyPieces + ",
-    // queens=" + queens);
-    // } else if (enemyPieces <= 12) {
-    // // gradual transition
-    // weight = (12 - enemyPieces) / 6.0; // maps 12->0, 6->1
-    // }
-
-    // return Math.min(1.0, Math.max(0.0, weight));
-    // }
-
     private double getEndgameWeight(State state, Player botPlayer) {
         if (state == null || state.board == null)
             return 0.0;
 
         int enemyPieces = 0;
-        int enemyQueens = 0;
         Player enemy = botPlayer.other();
 
-        // Count enemy pieces and queens
+        // Count enemy pieces
         for (int rank = 0; rank < 8; rank++) {
             for (int file = 0; file < 8; file++) {
                 Piece piece = state.board.getPieceAt(file, rank);
@@ -509,16 +545,13 @@ public class MyBot extends Bot {
                     continue;
 
                 enemyPieces++;
-                if (piece.toString().toLowerCase().contains("q"))
-                    enemyQueens++;
-                // System.out.println("Enemy queen number:" + enemyQueens);
             }
         }
 
         double weight = 0.0;
 
-        // Endgame heuristic
-        if (enemyPieces <= 6 || enemyQueens == 0) {
+        // Endgame heuristic based solely on number of enemy pieces
+        if (enemyPieces <= 6) {
             weight = 1.0;
         } else if (enemyPieces <= 12) {
             // Gradual transition
